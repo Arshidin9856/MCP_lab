@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Browser Agent — MCP demo</title>
+</head>
+<body>
+  <main class="lab">
+    <header class="lab__header">
+      <h1 class="lab__title">Browser Agent</h1>
+      <p class="lab__subtitle">LLM-агент управляет реальным сайтом через
+        MCP-инструменты (JSON-RPC → Playwright)</p>
+    </header>
+
+    <details class="lab__help">
+      <summary>Как это устроено</summary>
+      <!-- Весь путь прогона от задачи до ответа: по клику рендерим
+           mermaid → svg и открываем картинкой в новой вкладке
+           (blob-URL, см. main.ts). Источник диаграммы — инертный
+           <script type="text/plain"> ниже. -->
+      <p><a id="diagramLink" class="lab__diagram-link" href="#diagram">
+        📊 диаграмма пути прогона — откроется в новой вкладке</a></p>
+      <script type="text/plain" id="diagramSrc">
+flowchart TD
+  task["👤 задача пользователя<br/>«о чём эта страница»"]
+  run["serve.py · POST /api/run"]
+  scen["scenarios.py<br/>scenario_for_url → сценарий + scope"]
+  pre{"PolicyGate.check_task<br/>домены · стоп-слова · инъекции"}
+  rej["⛔ rejected — причина в чате"]
+  cls["llm.classify → LLM<br/>CAN / CANT_NOW / REFUSE"]
+  snap["server.py · browser_snapshot<br/>элементы e0…eN + TEXT"]
+  dec["llm.decide → LLM<br/>план calls[]"]
+  gate{"хост: validate + scope<br/>+ PolicyGate.check_call"}
+  deny["история ← отказ<br/>модель видит причину"]
+  modal["⚠ модалка подтверждения<br/>решение — за человеком"]
+  exec["tools/call → server.py<br/>Playwright → Chrome"]
+  ver{"verify:<br/>страница изменилась?"}
+  done["✅ ответ пользователю"]
+
+  task --> run --> scen --> pre
+  pre -->|"вне scope"| rej
+  pre -->|"ok"| cls
+  cls -->|"CAN"| snap
+  cls -->|"CANT_NOW / REFUSE"| rej
+  snap --> dec
+  dec -->|"task_done"| done
+  dec -->|"browser_*"| gate
+  gate -->|"deny"| deny
+  gate -->|"confirm"| modal
+  gate -->|"ok"| exec
+  modal -->|"Разрешить"| exec
+  modal -->|"Запретить"| deny
+  exec --> ver
+  ver -->|"да → история + новый снапшот"| snap
+  ver -->|"нет"| deny
+  deny --> dec
+
+  classDef good fill:#1d2740,stroke:#4ade80,color:#e6e9f2,stroke-width:2px;
+  classDef bad fill:#1d2740,stroke:#f87171,color:#e6e9f2,stroke-width:2px;
+  classDef human fill:#1d2740,stroke:#7aa2ff,color:#e6e9f2,stroke-width:2px;
+  class done good
+  class rej bad
+  class modal human
+      </script>
+      <ol>
+        <li><code>server.py</code> — MCP-сервер (stdio, JSON-RPC 2.0):
+            владеет сессией Chrome и отдаёт инструменты
+            <code>browser_navigate / snapshot / click / type / press /
+            scroll / back</code></li>
+        <li><code>agent.py</code> — хост: запрашивает <code>tools/list</code>,
+            гоняет цикл <i>снапшот → LLM → проверки → tools/call →
+            верификация</i>; держит scope и журнал</li>
+        <li>Модель видит структурированный снапшот страницы (refs e0,e1,…),
+            без скриншотов и сырого HTML</li>
+        <li><code>task_done</code> — хост-инструмент: модель завершает
+            задачу с ответом; на сервер этот вызов не уходит</li>
+        <li>Вставьте <b>ссылку в первое сообщение</b> — агент сам откроет
+            страницу, а scope ограничится её доменом</li>
+      </ol>
+    </details>
+
+    <section class="lab__controls">
+      <div class="lab__target">
+        <input id="targetInput" class="lab__target-input" list="siteList"
+               placeholder="целевая страница — вставьте https://… или выберите из списка"
+               title="Стартовая страница агента; scope ограничится её доменом">
+        <datalist id="siteList">
+          <option value="https://quotes.toscrape.com">Цитаты — теги и пагинация (учебный сайт)</option>
+          <option value="https://books.toscrape.com">Каталог книг (учебный сайт)</option>
+          <option value="https://news.ycombinator.com">Hacker News — простой HTML</option>
+          <option value="https://hn.algolia.com">Поиск по HN (форма поиска)</option>
+          <option value="https://the-internet.herokuapp.com/login">Учебный логин tomsmith</option>
+          <option value="https://en.wikipedia.org">Wikipedia — поиск статьи</option>
+          <option value="http://localhost:8777/index.html">⚔ Атак-лаборатория — безопасный блог</option>
+          <option value="http://localhost:8777/inject_nav.html">⚔ Атака: увод навигации</option>
+          <option value="http://localhost:8777/inject_exfil.html">⚔ Атака: эксфильтрация секрета</option>
+          <option value="http://localhost:8777/inject_persona.html">⚔ Атака: перехват персоны</option>
+          <option value="http://localhost:8777/inject_danger.html">⚔ MiniDrive — деструктивные действия</option>
+        </datalist>
+        <button id="targetClear" class="lab__target-clear" hidden
+                title="Сбросить страницу">×</button>
+      </div>
+      <button id="analyze" title="Read-only разведка: снапшот → черновик политики">
+        Разведать</button>
+      <span class="lab__llm-badge" title="локальная модель через Ollama">
+        ollama · qwen3</span>
+      <button id="togglePanel" title="На узком экране переключить чат и журнал">Чат / журнал</button>
+      <button id="clearChat" title="Очистить чат и сбросить страницу">
+        Новый чат</button>
+    </section>
+
+    <section class="lab__workspace">
+      <div class="lab__chatcol">
+        <div class="lab__chat" id="chat" aria-live="polite"></div>
+        <section class="lab__input">
+          <textarea id="task" rows="1" autofocus
+                    title="Enter — отправить, Shift+Enter — новая строка"
+                    placeholder="Ссылка + задание… (Enter — отправить, Shift+Enter — перенос)"></textarea>
+          <button id="stop" hidden title="Остановить прогон"
+                  aria-label="Остановить прогон">■</button>
+          <button id="send" title="Отправить (Enter)"
+                  aria-label="Отправить">↑</button>
+        </section>
+      </div>
+      <aside class="lab__panel">
+        <div class="panel">
+          <h2 class="panel__title">Состояние прогона</h2>
+          <dl class="panel__stats" id="stats"></dl>
+        </div>
+        <div class="panel">
+          <h2 class="panel__title">Инструменты MCP</h2>
+          <ul class="panel__tools" id="tools"></ul>
+        </div>
+        <div class="panel">
+          <div class="panel__head">
+            <h2 class="panel__title">Текущий снапшот</h2>
+            <div class="panel__actions">
+              <button id="snapCopy" class="panel__btn" title="Скопировать JSON">копировать</button>
+              <button id="snapDl" class="panel__btn" title="Скачать JSON">скачать</button>
+            </div>
+          </div>
+          <div class="panel__snapshot" id="snapshot">—</div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <!-- Human-in-the-loop: модалка подтверждения деструктивного вызова.
+       Агент встаёт на паузу (PolicyGate verdict "confirm") и ждёт
+       решения человека — deny по умолчанию при таймауте/стопе. -->
+  <div id="confirmModal" class="modal" hidden role="dialog"
+       aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal__box">
+      <h2 id="confirmTitle" class="modal__title">
+        ⚠ Агент запрашивает разрешение</h2>
+      <p class="modal__text" id="confirmText"></p>
+      <pre class="modal__call" id="confirmCall"></pre>
+      <div class="modal__actions">
+        <button id="confirmYes" class="modal__btn modal__btn--danger">
+          Разрешить</button>
+        <button id="confirmNo" class="modal__btn">Запретить</button>
+      </div>
+      <p class="modal__hint">Без ответа действие будет отклонено —
+        человек здесь последний рубеж, а не модель.</p>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# --- не коммитить: зависимости и кэш ---
+**/node_modules/
+**/.venv/
+**/.venv-linux/
+**/dist/
+**/__pycache__/
+*.pyc
+**/logs/
+**/session.json
+backend/scripted_llm.json
+**/last_run.json
+files/
+*.db
+
+# --- не коммитить: материалы преподавателя (не для студентов) ---
+# Эталон с решениями — студенты получают только MCP_LAB_STUDENT
+MCP_LAB/
+# Сгенерированные отчёты и методички
+out_pdf/
+*.docx
+*.pdf
+# КРОМЕ релизных PDF студенческого пакета — они публичны:
+!MCP_LAB_STUDENT/docs/pdf/*.pdf
+# gen_reports.py в студенческом пакете — артефакт преподавателя:
+# импортирует gen_lab_docs, которого в пакете нет; файл оставлен,
+# но это НЕ студенческая команда — не версионируем его.
+MCP_LAB_STUDENT/tools/gen_reports.py
+# Кэш vite dep-optimizer — не публикуем
+**/.vite/
+# Рабочие заметки и генераторы документов
+OVERNIGHT*.md
+RESEARCH.md
+gen_docs.py
+gen_install_doc.py
+gen_lab_doc.py

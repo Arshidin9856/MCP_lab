@@ -1,0 +1,18 @@
+{
+  "name": "browser-agent-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.0",
+    "vite": "^7.1.0"
+  },
+  "dependencies": {
+    "mermaid": "12.2.0"
+  }
+}

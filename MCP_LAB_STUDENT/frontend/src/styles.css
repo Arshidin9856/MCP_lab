@@ -1,0 +1,520 @@
+/* Дизайн-токены — единственный источник цветов/отступов/шрифтов. */
+:root {
+  --color-bg: #0f1117;
+  --color-panel: #171b26;
+  --color-line: #262c3d;
+  --color-fg: #e6e9f2;
+  --color-dim: #8b93a7;
+  --color-accent: #7aa2ff;
+  --color-ok: #4ade80;
+  --color-bad: #f87171;
+  --color-user: #1d2740;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 10px;
+  --space-4: 12px;
+  --space-5: 14px;
+  --space-6: 16px;
+  --space-7: 24px;
+  --space-8: 48px;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-bubble: 20px;      /* пузырёк сообщения пользователя */
+  --radius-composer: 26px;    /* «композер» — поле ввода как в ChatGPT */
+  --size-composer-btn: 36px;  /* круглая кнопка внутри композера */
+
+  --font-body: 14px/1.5 system-ui, sans-serif;
+  --font-mono: 13px/1.45 ui-monospace, monospace;
+  --font-small: 13px/1.5 system-ui, sans-serif;
+  --layout-width: 100%;
+  --layout-sidebar: clamp(24%, 30vw, 38%);
+  --layout-modal: clamp(55%, 68vw, 92%);
+  --layout-panel-height: 26vh;
+  --color-overlay: rgb(0 0 0 / 65%);
+  --border-width: 0.08rem;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font: var(--font-body);
+  /* Страница целиком — ровно в окно: скроллится только чат. */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* --- layout ------------------------------------------------------------ */
+.lab {
+  width: var(--layout-width);
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-6) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.lab__title { margin: 0 0 var(--space-1); font-size: 20px; }
+.lab__subtitle { margin: 0; color: var(--color-dim); }
+
+.lab__help {
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-5);
+  color: var(--color-dim);
+}
+.lab__help summary { cursor: pointer; color: var(--color-fg); }
+.lab__help code { color: var(--color-accent); }
+.lab__help a { color: var(--color-accent); }
+.lab__diagram-link { display: inline-block;
+                     margin: var(--space-2) 0 var(--space-3); }
+
+.lab__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.lab__llm-badge {
+  color: var(--color-dim);
+  font: var(--font-small);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.lab__target {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-panel);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  min-width: 0;
+  flex: 1;
+}
+.lab__target-input {
+  flex: 1;
+  min-width: 0;
+  font: var(--font-mono);
+  color: var(--color-accent);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.lab__target-input::placeholder { color: var(--color-dim); }
+.lab__target-input:focus { outline: none; }
+.lab__target-clear {
+  padding: 0 var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--color-bad);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.lab__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--layout-sidebar);
+  gap: var(--space-5);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+/* «Чат/журнал» имеет смысл только на узком экране: там панель скрыта
+   и кнопка переключает колонки. На широком обе колонки видны сразу,
+   кнопка ничего не делает — прячем её. */
+#togglePanel { display: none; }
+@media (max-width: 56rem) {
+  #togglePanel { display: inline-block; }
+  .lab__workspace { grid-template-columns: minmax(0, 1fr); }
+  .lab .lab__panel { display: none; }
+  .lab--panel-open .lab__panel { display: flex; }
+  .lab--panel-open .lab__chatcol { display: none; }
+}
+
+/* --- chat --------------------------------------------------------------- */
+/* Левая колонка = лента + композер одной ширины (как в ChatGPT —
+   поле ввода под чатом, а не во всю страницу). */
+.lab__chatcol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Лента как в ChatGPT: без карточки, сообщения идут плоским текстом
+   на фоне страницы; пузырёк только у пользователя. */
+.lab__chat {
+  flex: 1;
+  padding: var(--space-4);
+  overflow-y: auto;
+  min-height: 0;                /* grid-элемент: скролл внутри, не страница */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.msg {
+  padding: var(--space-1) 0;
+  word-break: break-word;
+}
+.msg--user {
+  background: var(--color-user);
+  border-radius: var(--radius-bubble);
+  padding: var(--space-3) var(--space-5);
+  align-self: flex-end;
+  max-width: 70%;
+}
+.msg--sys  { color: var(--color-dim); font: var(--font-small); }
+/* Разделитель между прогонами. */
+.msg--runsep {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-dim);
+  font: var(--font-small);
+}
+.msg--runsep::before,
+.msg--runsep::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--color-line);
+}
+/* Шаг агента — карточка: шапка с чипом инструмента, под ней
+   reasoning и результат. Так лента сканируется по вызовам,
+   а не сплошным монотекстом. */
+.msg--step {
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font: var(--font-small);
+}
+.step__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.step__num { color: var(--color-dim); font-weight: 600; }
+.chip {
+  font: var(--font-mono);
+  color: var(--color-accent);
+  background: var(--color-bg);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+}
+.step__args {
+  font: var(--font-mono);
+  color: var(--color-fg);
+  word-break: break-all;
+}
+.step__reason {
+  color: var(--color-dim);
+  font-style: italic;
+  margin-top: var(--space-1);
+}
+.step__result {
+  color: var(--color-dim);
+  font: var(--font-mono);
+  margin-top: var(--space-1);
+  white-space: pre-wrap;
+}
+/* Бейдж вердикта шага. */
+.badge {
+  font: var(--font-small);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  padding: 0 var(--space-2);
+}
+.badge--ok  { color: var(--color-ok); border-color: var(--color-ok); }
+.badge--bad { color: var(--color-bad); border-color: var(--color-bad); }
+.msg--think {
+  color: var(--color-dim);
+  font-style: italic;
+  font: var(--font-small);
+  border-left: 2px solid var(--color-line);
+  padding-left: var(--space-3);
+}
+.msg--prompt {
+  align-self: stretch;
+  border: var(--border-width) dashed var(--color-line);
+  border-radius: var(--radius-bubble);
+  padding: var(--space-3) var(--space-5);
+  background: transparent;
+}
+/* Шапка <details> внутри баббла — общая для промпта и fold-блоков.
+   user-select: text — шапки должны копироваться вместе с лентой
+   (none рвал выделение целого чата на границах <details>). Клик по
+   summary по-прежнему раскрывает блок — простой клик не выделяет. */
+.msg .prompt-head {
+  font: var(--font-small);
+  font-weight: 600;
+  opacity: .75;
+  margin-bottom: var(--space-1);
+  cursor: pointer;
+  user-select: text;
+}
+/* Маркер раскрытия вместо нативного <summary>-треугольника —
+   блоки теперь div + [hidden] (details рвал выделение ленты). */
+.msg .prompt-head::before { content: "▸ "; }
+.msg .prompt-head--open::before { content: "▾ "; }
+.msg--prompt pre,
+.msg--fold pre {
+  margin: 0;
+  font: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 40vh;
+  overflow-y: auto;
+  user-select: text;
+}
+/* Схлопнутый лог-блок (длинные reasoning/результаты инструментов) —
+   тот же пунктирный каркас, что у промпт-баббла. */
+.msg--fold {
+  align-self: stretch;
+  border: var(--border-width) dashed var(--color-line);
+  border-radius: var(--radius-bubble);
+  padding: var(--space-3) var(--space-5);
+  background: transparent;
+}
+.msg--status { color: var(--color-accent); font: var(--font-small); }
+.msg--status .pulse { animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.msg--report { border-left: 3px solid var(--color-accent); padding-left: var(--space-3); }
+/* Ответ агента — акцентная карточка: это «полезный» результат
+   прогона, должен выделяться в ленте сильнее лог-строк. */
+.msg--answer {
+  border-left: 3px solid var(--color-ok);
+  background: var(--color-panel);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: var(--space-3) var(--space-4);
+}
+/* JSON-ответ (отчёт «Разведать»): сохраняем отступы, длинный отчёт
+   скроллится внутри баббла, а не раздувает чат. */
+.msg__pre {
+  margin: var(--space-2) 0 0;
+  font: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 40vh;
+  overflow-y: auto;
+  user-select: text;
+}
+.msg--error {
+  color: var(--color-bad);
+  border-left: 2px solid var(--color-bad);
+  padding-left: var(--space-3);
+}
+.msg__result { color: var(--color-dim); }
+
+.ok { color: var(--color-ok); }
+.fail { color: var(--color-bad); }
+
+/* --- side panel ---------------------------------------------------------- */
+.lab__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;             /* правая колонка скроллится отдельно */
+}
+.panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+.panel__title {
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--color-dim);
+}
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.panel__actions { display: flex; gap: var(--space-1); }
+.panel__btn {
+  padding: var(--space-1) var(--space-2);
+  font-size: 11px;
+  color: var(--color-dim);
+}
+.panel__btn:hover { color: var(--color-fg); }
+.panel__stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  font: var(--font-mono);
+}
+.panel__stats dt { color: var(--color-dim); }
+.panel__stats dd { margin: 0; }
+.panel__tools {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--font-mono);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 200px;
+  overflow-y: auto;
+}
+.panel__tools .used { color: var(--color-ok); }
+.panel__tools .unused { color: var(--color-dim); }
+.panel__tools .blocked { color: var(--color-bad); }
+.panel__snapshot {
+  margin: 0;
+  font: var(--font-mono);
+  font-size: 11px;
+  max-height: 45vh;
+  overflow-y: auto;
+  color: var(--color-dim);
+  user-select: text;
+}
+/* Снапшот — структурой: заголовок/URL, секции текста, список элементов.
+   Длинные URL переносятся по границам, а не рвутся посреди слова. */
+.snap__head { color: var(--color-fg); margin-bottom: var(--space-2); }
+.snap__sec {
+  margin-top: var(--space-3);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-size: 10px;
+}
+.snap__text {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  color: var(--color-fg);
+}
+.snap__el { margin: var(--space-1) 0; color: var(--color-fg); }
+.snap__el code { color: var(--color-accent); }
+.snap__role { color: var(--color-dim); }
+.snap__meta { color: var(--color-dim); }
+.snap__href {
+  padding-left: var(--space-5);
+  overflow-wrap: anywhere;
+}
+
+/* --- controls ------------------------------------------------------------ */
+select, input, button, textarea {
+  background: var(--color-panel);
+  color: var(--color-fg);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+}
+button { cursor: pointer; }
+button:hover { border-color: var(--color-accent); }
+button:disabled { opacity: .5; cursor: default; }
+
+/* «Композер» как в ChatGPT: единая скруглённая карточка — textarea
+   без рамки внутри, кнопки — круглые, прибиты к низу справа.
+   Сам блок всегда прибит к низу — страница не скроллится. */
+.lab__input {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  flex-shrink: 0;
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-composer);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-5);
+}
+.lab__input:focus-within { border-color: var(--color-accent); }
+.lab__input textarea {
+  flex: 1;
+  resize: none;
+  max-height: 30vh;
+  overflow-y: auto;
+  background: transparent;
+  border: none;
+  padding: var(--space-2) 0;
+}
+.lab__input textarea:focus { outline: none; }
+.lab__input button {
+  flex-shrink: 0;
+  width: var(--size-composer-btn);
+  height: var(--size-composer-btn);
+  padding: 0;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Отправить — акцентный круг со стрелкой, как в ChatGPT. */
+.lab__input #send {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+  font-weight: 700;
+}
+.lab__input #send:disabled {
+  background: var(--color-line);
+  border-color: var(--color-line);
+  color: var(--color-dim);
+}
+
+/* --- confirm-модалка (human-in-the-loop) ------------------------------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal[hidden] { display: none; }
+.modal__box {
+  width: var(--layout-modal);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: var(--border-width) solid var(--color-bad);
+  border-radius: var(--radius-md);
+  padding: var(--space-7);
+  color: var(--color-fg);
+}
+.modal__title { margin: 0 0 var(--space-3); font: var(--font-body); font-weight: 700; }
+.modal__text { margin: 0 0 var(--space-3); font: var(--font-body); }
+.modal__call {
+  background: var(--color-bg);
+  border: var(--border-width) solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  font: var(--font-mono);
+  max-height: 48vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.modal__actions { display: flex; gap: var(--space-3); margin-top: var(--space-5); }
+.modal__btn { padding: var(--space-2) var(--space-6); border-radius: var(--radius-sm); cursor: pointer; }
+.modal__btn--danger {
+  background: var(--color-bad);
+  border-color: var(--color-bad);
+  color: var(--color-bg);
+}
+.modal__hint { margin: var(--space-4) 0 0; font: var(--font-small); color: var(--color-dim); }

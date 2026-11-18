@@ -11,21 +11,21 @@ POLICIES = {
 #    #   deny    — запретить (это и значение по умолчанию для
 #    #           неуказанных инструментов).
 #    #
-#    # "my_site": {
-#    #     "browser_navigate": "allow",
-#    #     "browser_snapshot": "allow",
-#    #     "browser_scroll":   "allow",
-#    #     "browser_get_text": "allow",
-#    #     "browser_back":     "allow",
-#    #     "browser_click":    "confirm",
-#    #     "browser_type":     "deny",
-#    #     "browser_press":    "deny",
-#    #     "browser_new_tab":  "deny",
-#    #     "browser_switch_tab": "deny",
-#    #     "browser_list_tabs": "deny",
-#    #     "drive_list_files": "deny",
-#    #     "drive_trash_files": "deny",
-#    # },
+   "wikipedia": {
+       "browser_navigate": "allow",
+       "browser_snapshot": "allow",
+       "browser_scroll":   "allow",
+       "browser_get_text": "allow",
+       "browser_back":     "allow",
+       "browser_click":    "confirm",
+       "browser_type":     "deny",
+       "browser_press":    "deny",
+       "browser_new_tab":  "deny",
+       "browser_switch_tab": "deny",
+       "browser_list_tabs": "deny",
+       "drive_list_files": "deny",
+       "drive_trash_files": "deny",
+   },
 }
 
 

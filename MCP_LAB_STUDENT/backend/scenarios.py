@@ -79,7 +79,17 @@ SCENARIOS: dict[str, Scenario] = {}
 #     # политика, промпт ей не замена и не усиление.
 #     context_prompt="навигационная подсказка из разведки",
 #     match=r"example\.com")
-
+SCENARIOS["my_site"] = Scenario(
+   name=  "wikipedia",
+   url="https://example.com",
+   example_task="...",
+    domains= [
+      "ru.wikipedia.org"
+    ],
+    read_only=False,
+    match =  "^https?://(www\\.)?ru\\.wikipedia\\.org/",
+    context_prompt= "This is a Wikipedia article page with edit capabilities. The agent can read content and interact with edit functions."
+)
 
 def scenario_for_url(url: str) -> Scenario:
     """Сценарий под целевую страницу.
